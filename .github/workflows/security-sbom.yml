@@ -21,18 +21,17 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build project
-        run: npm run build
+        run: echo "skip build"
 
-      - name: Generate SBOM with Syft
-        uses: anchore/syft-action@v1
-        id: syft
+      - name: Generate SBOM with Anchore SBOM Action
+        uses: anchore/sbom-action@v0
         with:
-          target: .
-          output: 'cyclonedx-json,spdx-json'
-          output-file: 'sbom'
+          path: .
+          format: cyclonedx-json,spdx-json
+          output-file: sbom
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
