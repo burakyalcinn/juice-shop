@@ -1,3 +1,4 @@
+# # Workflow name and triggers
 name: security-sbom
 
 on:
@@ -8,32 +9,63 @@ on:
   workflow_dispatch:
 
 jobs:
+  # # Job: run semgrep first (code scanning)
+  semgrep:
+    runs-on: ubuntu-latest
+    # # If you want semgrep warnings to not stop the pipeline, set continue-on-error: true
+    #continue-on-error: true
+    steps:
+      - name: Checkout repository
+        # # get the repository files
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep (fast CI rules)
+        # # run semgrep action with a quick rule pack 'p/ci'
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/ci
+        # # If you use Semgrep Cloud (optional) set SEMGREP_APP_TOKEN secret in repo settings:
+        # env:
+        #   SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  # # Job: build project and generate SBOM, runs after semgrep
   build-and-sbom:
+    needs: semgrep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
+        # # need the repo files again in this job
         uses: actions/checkout@v4
 
       - name: Set up Node.js
+        # # set node and enable npm cache
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
       - name: Install dependencies
+        # # install node modules (use npm install to avoid package-lock mismatch)
         run: npm install
 
-      - name: Build project
+      - name: Build project (skip if none)
+        # # skip build if project doesn't require a build step
         run: echo "skip build"
 
       - name: Generate SBOM with Anchore SBOM Action
+        # # use Anchore sbom-action to create CycloneDX and SPDX JSON files
         uses: anchore/sbom-action@v0
         with:
           path: .
           format: cyclonedx-json,spdx-json
           output-file: sbom
 
+      - name: List created files (debug)
+        # # check generated files before uploading
+        run: ls -la sbom* || true
+
       - name: Upload SBOM artifacts
+        # # upload the SBOM files so you can download them from Actions UI
         uses: actions/upload-artifact@v4
         with:
           name: sbom-files
